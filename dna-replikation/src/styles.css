@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Schriftglättung und Basislayout */
+html, body, #root { height: 100%; }
+body { @apply antialiased text-slate-800; }
+
+
