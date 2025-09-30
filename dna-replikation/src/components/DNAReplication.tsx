@@ -35,7 +35,12 @@ export default function DNAReplication() {
   const s3Sep = useTransform(s3Progress, [0, 1], [120, 200])
   const s3RevealWidth = useTransform(s3Progress, [0, 1], [0, 1040])
   const s4Twist = s4Progress
-  const s3PolyX = useTransform(s3Progress, [0, 1], [120, 960])
+  const s3PolyX = useTransform(s3Progress, [0, 1], [120, 1120])
+  // Render-Trigger für Stadium 3: wenn sich die Polymerase bewegt, re-rendern
+  const [polyX, setPolyX] = useState<number>((s3PolyX as any).get())
+  useMotionValueEvent(s3PolyX, 'change', (v) => {
+    setPolyX(v)
+  })
 
   // Drehung/Entdrillung – im Stadium 2 aktiv
   const unwinding = useTransform(s2Progress, [0, 1], [0, 1])
@@ -96,9 +101,31 @@ export default function DNAReplication() {
   return (
     <div ref={containerRef} className="relative mx-auto max-w-6xl px-6 py-16 min-h-[340vh]">
       <div className="sticky top-20">
-        <div className="grid grid-cols-1 gap-8">
-          <div className="relative h-[620px] rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <svg viewBox="0 0 1200 620" className="w-full h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-8 items-start">
+          {/* HTML-Legende links neben der Modelldarstellung */}
+          <div className="mx-auto w-full max-w-sm lg:max-w-none rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+            <div className="text-slate-800 font-medium mb-2">Basen‑Legende</div>
+            <ul className="space-y-2 text-sm text-slate-700">
+              <li className="flex items-center gap-3">
+                <span className="inline-block w-5 h-3 rounded" style={{ backgroundColor: '#8AD1E3' }} />
+                <span>Adenin</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="inline-block w-5 h-3 rounded" style={{ backgroundColor: '#B296FF' }} />
+                <span>Thymin</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="inline-block w-5 h-3 rounded" style={{ backgroundColor: '#B6E388' }} />
+                <span>Cytosin</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="inline-block w-5 h-3 rounded" style={{ backgroundColor: '#F9A23B' }} />
+                <span>Guanin</span>
+              </li>
+            </ul>
+          </div>
+          <div className="relative h-[740px] rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <svg viewBox="0 0 1200 740" className="w-full h-full">
               <defs>
                 <linearGradient id="backbone" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor="#ff718f" />
@@ -128,8 +155,12 @@ export default function DNAReplication() {
 
               {/* STADIUM 1: eingedrehte Doppelhelix */}
               <m.g style={{ opacity: stage1Opacity }}>
-                <path d={pathTop} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
-                <path d={pathBottom} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
+                <Tooltip label="Zucker‑Phosphat‑Rückgrat" text={facts.Rueckgrat}>
+                  <g>
+                    <path d={pathTop} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
+                    <path d={pathBottom} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
+                  </g>
+                </Tooltip>
                 {basePairs.map((p, idx) => {
                   const t = idx / (basePairs.length - 1)
                   const pt = pointsTop[Math.min(pointsTop.length - 1, Math.round(t * (pointsTop.length - 1)))]
@@ -138,12 +169,20 @@ export default function DNAReplication() {
                   const cy = (pt.y + pb.y) / 2
                   const height = Math.max(16, Math.abs(pb.y - pt.y) - 14)
                   const tilt = 35 * Math.sin(pt.phase)
+                  // Während der Überblendung in Stadium 2 sollen rechts der Helikase
+                  // keine H-Brücken (und Basen der Doppelhelix) mehr sichtbar sein.
+                  const fork = (forkX as any).get()
+                  const s2 = (s2Progress as any).get()
+                  const hideRight = s2 > 0.02 && cx >= fork
+                  if (hideRight) return null
                   return (
-                    <g key={`s1-${idx}`} transform={`rotate(${tilt}, ${cx}, ${cy})`}>
-                      <rect x={cx - 2} y={cy - height / 2} width={4} height={height} fill="#e2e8f0" />
-                      <rect x={cx - 18} y={pt.y - 10} width={20} height={20} rx={6} fill={p.colorLeft} />
-                      <rect x={cx - 2} y={pb.y - 10} width={20} height={20} rx={6} fill={p.colorRight} />
-                    </g>
+                    <Tooltip key={`s1-tip-${idx}`} label={`Basenpaar ${p.baseL}‑${p.baseR}`} text={facts.Basenpaarung}>
+                      <g transform={`rotate(${tilt}, ${cx}, ${cy})`}>
+                        <rect x={cx - 2} y={cy - height / 2} width={4} height={height} fill="#e2e8f0" />
+                        <rect x={cx - 18} y={pt.y - 10} width={20} height={20} rx={6} fill={p.colorLeft} />
+                        <rect x={cx - 2} y={pb.y - 10} width={20} height={20} rx={6} fill={p.colorRight} />
+                      </g>
+                    </Tooltip>
                   )
                 })}
               </m.g>
@@ -152,8 +191,12 @@ export default function DNAReplication() {
               <m.g style={{ opacity: stage2Opacity }}>
                 {/* linke Seite weiterhin Helix, rechts getrennte Stränge */}
                 <g>
-                  <path d={pathTop} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
-                  <path d={pathBottom} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
+                  <Tooltip label="Zucker‑Phosphat‑Rückgrat" text={facts.Rueckgrat}>
+                    <g>
+                      <path d={pathTop} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
+                      <path d={pathBottom} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
+                    </g>
+                  </Tooltip>
                   {basePairs.map((p, idx) => {
                     const t = idx / (basePairs.length - 1)
                     const pt = pointsTop[Math.min(pointsTop.length - 1, Math.round(t * (pointsTop.length - 1)))]
@@ -162,35 +205,47 @@ export default function DNAReplication() {
                     const cy = (pt.y + pb.y) / 2
                     const height = Math.max(16, Math.abs(pb.y - pt.y) - 14)
                     const fork = (forkX as any).get()
-                    const nearFork = Math.max(0, 1 - Math.abs(cx - fork) / 240)
-                    // Wasserstoffbrücke schrumpft von der Gabel aus
-                    const bridgeScale = 1 - nearFork
-                    // Basensprossen richten sich zur Gabel hin aus
-                    const tilt = (8 + 27 * (1 - nearFork)) * Math.sin(pt.phase)
+                    // H-Brücken existieren nur links der Helikase; zur Gabel hin weich ausblenden
+                    const leftFactor = Math.max(0, Math.min(1, (fork - cx) / 200))
+                    const bridgeScale = leftFactor
+                    const tilt = (8 + 27 * leftFactor) * Math.sin(pt.phase)
                     return (
-                      <g key={`s2-${idx}`} transform={`rotate(${tilt}, ${cx}, ${cy})`}>
-                        <rect x={cx - 2} y={cy - (height * (0.25 + 0.75 * bridgeScale)) / 2} width={4} height={height * (0.25 + 0.75 * bridgeScale)} fill="#e2e8f0" />
-                        <rect x={cx - 18} y={pt.y - 10} width={20} height={20} rx={6} fill={p.colorLeft} />
-                        <rect x={cx - 2} y={pb.y - 10} width={20} height={20} rx={6} fill={p.colorRight} />
-                      </g>
+                      <Tooltip key={`s2-tip-${idx}`} label={`Basenpaar ${p.baseL}‑${p.baseR}`} text={facts.Basenpaarung}>
+                        <g transform={`rotate(${tilt}, ${cx}, ${cy})`}>
+                          <rect x={cx - 2} y={cy - (height * bridgeScale) / 2} width={4} height={height * bridgeScale} fill="#e2e8f0" opacity={bridgeScale} />
+                          {cx < fork && (
+                            <>
+                              <rect x={cx - 18} y={pt.y - 10} width={20} height={20} rx={6} fill={p.colorLeft} />
+                              <rect x={cx - 2} y={pb.y - 10} width={20} height={20} rx={6} fill={p.colorRight} />
+                            </>
+                          )}
+                        </g>
+                      </Tooltip>
                     )
                   })}
                 </g>
                 {/* rechte Seite ab Gabel: getrennte Stränge mit Abstand */}
                 <g>
                   {basePairs.map((p, idx) => {
-                    const x = 100 + idx * 38
+                    const t = idx / (basePairs.length - 1)
+                    const pt = pointsTop[Math.min(pointsTop.length - 1, Math.round(t * (pointsTop.length - 1)))]
+                    const pb = pointsBottom[Math.min(pointsBottom.length - 1, Math.round(t * (pointsBottom.length - 1)))]
+                    const cx = pt.x
                     const fork = (forkX as any).get()
-                    if (x < fork) return null
-                    // Aus der Gabel heraus „ziehen“ sich die Stränge auseinander
-                    const baseOffset = Math.min(1, Math.max(0, (x - fork) / 220))
+                    if (cx < fork) return null
+                    // Aus der Gabel heraus spreizen die Stränge – Basen bleiben an den Strängen verankert
+                    const baseOffset = Math.min(1, Math.max(0, (cx - fork) / 220))
                     const sep = (splitSep as any).get() * baseOffset
-                    const yTop = 200 - (idx % 6) * 10 - sep
-                    const yBottom = 320 + (idx % 6) * 10 + sep
+                    const yTop = pt.y - sep
+                    const yBottom = pb.y + sep
                     return (
                       <g key={`s2split-${idx}`}>
-                        <rect x={x - 12} y={yTop - 18} width={24} height={36} rx={6} fill={p.colorLeft} />
-                        <rect x={x - 12} y={yBottom - 18} width={24} height={36} rx={6} fill={p.colorRight} />
+                        <Tooltip label="Leitstrang (Vorlage)" text={facts.Leitstrang}>
+                          <rect x={cx - 12} y={yTop - 18} width={24} height={36} rx={6} fill={p.colorLeft} />
+                        </Tooltip>
+                        <Tooltip label="Folgestrang (Vorlage)" text={facts.Folgestrang}>
+                          <rect x={cx - 12} y={yBottom - 18} width={24} height={36} rx={6} fill={p.colorRight} />
+                        </Tooltip>
                       </g>
                     )
                   })}
@@ -214,23 +269,30 @@ export default function DNAReplication() {
               <m.g style={{ opacity: stage3Opacity }}>
                 {basePairs.map((p, idx) => {
                   const x = 100 + idx * 38
-                  const fork = (forkX as any).get()
-                  const distFromFork = Math.max(0, x - fork)
-                  const grow = Math.min(1, distFromFork / 900) // wächst nach rechts
+                  const window = 160 // Abstand hinter Polymerase, in dem Basen eingeblendet werden
+                  const grow = easeInOutQuad(Math.max(0, Math.min(1, (polyX - x) / window)))
                   const yTop = 200 - (idx % 6) * 10 - (s3Sep as any).get()
                   const yBottom = 320 + (idx % 6) * 10 + (s3Sep as any).get()
                   return (
                     <g key={`s3-${idx}`}>
                       {/* Vorlage-Stränge */}
-                      <rect x={x - 12} y={yTop - 18} width={24} height={36} rx={6} fill={p.colorLeft} />
-                      <rect x={x - 12} y={yBottom - 18} width={24} height={36} rx={6} fill={p.colorRight} />
-                      {/* komplementäre Basen wachsen vom Gabelpunkt aus (Skalierung von 0→1) */}
-                      <g transform={`translate(${x},${yTop}) scale(${grow}) translate(${-x},${-yTop})`}>
-                        <rect x={x + 6} y={yTop - 16} width={20} height={32} rx={6} fill={p.colorRight} />
-                      </g>
-                      <g transform={`translate(${x},${yBottom}) scale(${grow}) translate(${-x},${-yBottom})`}>
-                        <rect x={x + 6} y={yBottom - 16} width={20} height={32} rx={6} fill={p.colorLeft} />
-                      </g>
+                      <Tooltip label="Leitstrang (Vorlage)" text={facts.Leitstrang}>
+                        <rect x={x - 12} y={yTop - 18} width={24} height={36} rx={6} fill={p.colorLeft} />
+                      </Tooltip>
+                      <Tooltip label="Folgestrang (Vorlage)" text={facts.Folgestrang}>
+                        <rect x={x - 12} y={yBottom - 18} width={24} height={36} rx={6} fill={p.colorRight} />
+                      </Tooltip>
+                      {/* komplementäre Basen erscheinen, sobald Polymerase/Primase vorbeigelaufen ist */}
+                      <Tooltip label="Leitstrang‑Synthese" text={facts.Leitstrang}>
+                        <g transform={`translate(${x},${yTop}) scale(${grow}) translate(${-x},${-yTop})`}>
+                          <rect x={x + 6} y={yTop - 16} width={20} height={32} rx={6} fill={p.colorRight} />
+                        </g>
+                      </Tooltip>
+                      <Tooltip label="Okazaki‑Fragment" text={facts.Okazaki}>
+                        <g transform={`translate(${x},${yBottom}) scale(${grow}) translate(${-x},${-yBottom})`}>
+                          <rect x={x + 6} y={yBottom - 16} width={20} height={32} rx={6} fill={p.colorLeft} />
+                        </g>
+                      </Tooltip>
                     </g>
                   )
                 })}
@@ -238,20 +300,30 @@ export default function DNAReplication() {
                 <Tooltip label="DNA‑Polymerase" text={facts.DNA_Polymerase}>
                   <m.rect y={140 - (s3Sep as any).get()} width="120" height="36" rx="18" className="fill-slate-700" style={{ x: s3PolyX }} />
                 </Tooltip>
+                <Tooltip label="PCNA (Sliding Clamp)" text={facts.PCNA}>
+                  <m.circle r="22" className="fill-none stroke-amber-400" strokeWidth="3" style={{ x: s3PolyX, y: 140 - (s3Sep as any).get() + 18 }} />
+                </Tooltip>
                 <Tooltip label="DNA‑Polymerase" text={facts.DNA_Polymerase}>
                   <m.rect y={460 + (s3Sep as any).get()} width="120" height="36" rx="18" className="fill-slate-700" style={{ x: s3PolyX }} />
               </Tooltip>
+                <Tooltip label="PCNA (Sliding Clamp)" text={facts.PCNA}>
+                  <m.circle r="22" className="fill-none stroke-amber-400" strokeWidth="3" style={{ x: s3PolyX, y: 460 + (s3Sep as any).get() + 18 }} />
+                </Tooltip>
                 <Tooltip label="Primase / RNA‑Primer" text={facts.Primase}>
                   <m.rect width="80" height="16" rx="8" fill="url(#primer)" style={{ x: s3PolyX, y: 340, opacity: 0.8 }} />
-                </Tooltip>
+                  </Tooltip>
               </m.g>
 
               {/* STADIUM 4: fertige Doppelhelices drehen sich ein */}
               <m.g style={{ opacity: stage4Opacity }}>
-                {[-80, 80].map((yShift, k) => (
+                {[-120, 240].map((yShift, k) => (
                   <g key={k}>
-                    <path d={pathTop} transform={`translate(0, ${yShift})`} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
-                    <path d={pathBottom} transform={`translate(0, ${yShift})`} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
+                    <Tooltip label="Zucker‑Phosphat‑Rückgrat" text={facts.Rueckgrat}>
+                      <g>
+                        <path d={pathTop} transform={`translate(0, ${yShift})`} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
+                        <path d={pathBottom} transform={`translate(0, ${yShift})`} stroke="url(#backbone)" strokeWidth="8" fill="none"/>
+                      </g>
+                    </Tooltip>
                     {basePairs.map((p, idx) => {
                       const t = idx / (basePairs.length - 1)
                       const pt = pointsTop[Math.min(pointsTop.length - 1, Math.round(t * (pointsTop.length - 1)))]
@@ -261,11 +333,13 @@ export default function DNAReplication() {
                       const height = Math.max(16, Math.abs(pb.y - pt.y) - 14)
                       const tilt = (10 + 25 * (s4Twist as any).get()) * Math.sin(pt.phase)
                       return (
-                        <g key={`s4-${k}-${idx}`} transform={`rotate(${tilt}, ${cx}, ${cy})`}>
-                          <rect x={cx - 2} y={cy - height / 2} width={4} height={height} fill="#e2e8f0" />
-                          <rect x={cx - 18} y={pt.y - 10 + yShift} width={20} height={20} rx={6} fill={p.colorLeft} />
-                          <rect x={cx - 2} y={pb.y - 10 + yShift} width={20} height={20} rx={6} fill={p.colorRight} />
-                        </g>
+                        <Tooltip key={`s4-tip-${k}-${idx}`} label={`Basenpaar ${p.baseL}‑${p.baseR}`} text={facts.Basenpaarung}>
+                          <g transform={`rotate(${tilt}, ${cx}, ${cy})`}>
+                            <rect x={cx - 2} y={cy - height / 2} width={4} height={height} fill="#e2e8f0" />
+                            <rect x={cx - 18} y={pt.y - 10 + yShift} width={20} height={20} rx={6} fill={p.colorLeft} />
+                            <rect x={cx - 2} y={pb.y - 10 + yShift} width={20} height={20} rx={6} fill={p.colorRight} />
+                          </g>
+                        </Tooltip>
                       )
                     })}
                   </g>
@@ -277,28 +351,11 @@ export default function DNAReplication() {
 
               
 
-              {/* Legende */}
-              <g>
-                <rect x="40" y="24" width="220" height="116" rx="12" className="fill-white" stroke="#e2e8f0" />
-                {[
-                  ['Adenin', '#8AD1E3'],
-                  ['Thymin', '#B296FF'],
-                  ['Cytosin', '#B6E388'],
-                  ['Guanin', '#F9A23B'],
-                ].map((it, i) => (
-                  <g key={i}>
-                    <rect x={56} y={40 + i*24} width="20" height="14" rx="4" fill={it[1]} />
-                    <text x={84} y={52 + i*24} fontSize="12" fill="#0f172a">{it[0]}</text>
-                  </g>
-                ))}
-              </g>
+              {/* Legende außerhalb des SVG platziert */}
             </svg>
           </div>
 
-          <div className="px-2 text-slate-700 text-sm">
-            <strong>Scroll‑Steuerung:</strong> {" "}
-            Frühphase: Entdrillung durch Topoisomerase und Öffnung der Gabel durch Helikase. Mittelphase: Leit‑/Folgestrang‑Synthese mit Primern, Okazaki‑Fragmenten und SSB/RPA. Spätphase: Ligation der Fragmente.
-          </div>
+          {/* Entfernt: Scroll-Steuerungstext am unteren Seitenende */}
         </div>
       </div>
     </div>

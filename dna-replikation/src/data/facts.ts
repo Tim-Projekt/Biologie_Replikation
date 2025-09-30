@@ -14,7 +14,15 @@ const facts = {
   RPA_SSB:
     'Einzelstrang‑bindende Proteine stabilisieren geöffnete DNA und verhindern Sekundärstrukturen.',
   PCNA:
-    'Sliding Clamp erhöht die Prozessivität der Polymerase; clamp loader setzt PCNA am Primer‑Template auf.',
+    'Sliding Clamp erhöht die Prozessivität der Polymerase; der clamp loader setzt PCNA am Primer‑Template auf.',
+  Rueckgrat:
+    'Zucker‑Phosphat‑Rückgrat trägt die Basen; Richtung ist 5’→3’. Die Basen sind über das Rückgrat verknüpft, nicht direkt miteinander.',
+  Basenpaarung:
+    'Komplementäre Basen: A paart mit T (2 H‑Brücken), C mit G (3 H‑Brücken). Diese Spezifität ermöglicht fehlerarme Replikation.',
+  Leitstrang:
+    'Wird kontinuierlich in Richtung der Replikationsgabel synthetisiert.',
+  Folgestrang:
+    'Wird diskontinuierlich entgegen der Gabelbewegung synthetisiert (Okazaki‑Fragmente).',
 }
 
 export default facts

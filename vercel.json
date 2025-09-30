@@ -1,0 +1,8 @@
+{
+  "framework": "vite",
+  "installCommand": "npm ci --prefix dna-replikation",
+  "buildCommand": "npm run build --prefix dna-replikation",
+  "outputDirectory": "dna-replikation/dist"
+}
+
+

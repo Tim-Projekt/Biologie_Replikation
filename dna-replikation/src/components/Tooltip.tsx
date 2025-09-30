@@ -1,16 +1,23 @@
-import { PropsWithChildren, useEffect, useRef, useState } from 'react'
+import { PropsWithChildren, useEffect, useId, useRef, useState } from 'react'
+import { useDeviceCapabilities } from '../utils/device'
 
 type TooltipProps = PropsWithChildren<{
   label: string
   text: string
   x?: number
   y?: number
+  delay?: number
+  ariaLabel?: string
 }>
 
-export default function Tooltip({ label, text, children, x, y }: TooltipProps) {
+export default function Tooltip({ label, text, children, x, y, delay = 120, ariaLabel }: TooltipProps) {
   const [open, setOpen] = useState(false)
   const groupRef = useRef<SVGGElement | null>(null)
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const enterTimer = useRef<number | null>(null)
+  const leaveTimer = useRef<number | null>(null)
+  const tooltipId = useId()
+  const { canHover, isTouchLike } = useDeviceCapabilities()
 
   const TOOLTIP_WIDTH = 260
   const TOOLTIP_HEIGHT = 120
@@ -55,16 +62,52 @@ export default function Tooltip({ label, text, children, x, y }: TooltipProps) {
   return (
     <g
       ref={groupRef}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onMouseMove={() => {
+      className="group outline-none"
+      role="group"
+      aria-haspopup="true"
+      aria-expanded={open}
+      aria-describedby={open ? tooltipId : undefined}
+      aria-label={ariaLabel ?? label}
+      tabIndex={0}
+      style={{ cursor: 'help', filter: open ? 'url(#glow)' as any : undefined }}
+      onMouseEnter={canHover ? () => {
+        if (leaveTimer.current) {
+          window.clearTimeout(leaveTimer.current)
+          leaveTimer.current = null
+        }
+        if (enterTimer.current) window.clearTimeout(enterTimer.current)
+        enterTimer.current = window.setTimeout(() => setOpen(true), delay)
+      } : undefined}
+      onMouseLeave={canHover ? () => {
+        if (enterTimer.current) {
+          window.clearTimeout(enterTimer.current)
+          enterTimer.current = null
+        }
+        if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
+        leaveTimer.current = window.setTimeout(() => setOpen(false), 60)
+      } : undefined}
+      onMouseMove={canHover ? () => {
         if (open) measure()
+      } : undefined}
+      onPointerEnter={!canHover ? undefined : undefined}
+      onPointerLeave={!canHover ? undefined : undefined}
+      onPointerUp={isTouchLike ? () => setOpen(o => !o) : undefined}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') setOpen(false)
       }}
+      onClick={isTouchLike ? undefined : () => setOpen(o => !o)}
     >
       {children}
       {open && (
         <foreignObject x={pos.x} y={pos.y} width={TOOLTIP_WIDTH} height={TOOLTIP_HEIGHT} pointerEvents="none">
-          <div className="pointer-events-none select-none rounded-lg border border-slate-200 bg-white p-3 shadow-md">
+          <div
+            id={tooltipId}
+            role="tooltip"
+            aria-hidden={!open}
+            className="pointer-events-none select-none rounded-lg border border-slate-200 bg-white p-3 shadow-md"
+          >
             <div className="text-xs font-semibold text-slate-900">{label}</div>
             <div className="mt-1 text-xs leading-5 text-slate-700">{text}</div>
           </div>

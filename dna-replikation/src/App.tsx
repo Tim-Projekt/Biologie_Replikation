@@ -10,7 +10,13 @@ export default function App() {
             <m.h1 initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold tracking-tight text-slate-900">
               Interaktive DNA‑Replikation
             </m.h1>
-            <a href="#modell" className="text-sm text-slate-600 hover:text-slate-900">Zum Modell</a>
+            <a
+              href="#modell"
+              className="text-sm text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded
+              active:opacity-80"
+            >
+              Zum Modell
+            </a>
           </div>
         </header>
 
@@ -26,11 +32,7 @@ export default function App() {
           </section>
         </main>
 
-        <footer className="border-t border-slate-200 mt-16">
-          <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-slate-600">
-            Modellhafte Visualisierung. Farben angelehnt an Vorlage: A blau, T violett, C grün, G orange; Zucker‑Phosphat‑Rückgrat rot.
-          </div>
-        </footer>
+        {/* Entfernt: Footer-Legende zur modellhaften Visualisierung */}
       </div>
     </LazyMotion>
   )
